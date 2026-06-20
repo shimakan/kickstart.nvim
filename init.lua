@@ -91,18 +91,27 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
 -- NOTE: You can change these options as you wish!
 --  For more options, you can see `:help option-list`
 
+-- Enable indenting for C-family languages
+vim.o.smartindent = true
+vim.o.cindent = true
+
+-- Tab width settings
+vim.o.tabstop = 4 -- how wide a tab character appears
+vim.o.shiftwidth = 4 -- how wide >> and auto-indent shift
+vim.o.softtabstop = 4 -- how wide Tab/Backspace feel in insert mode
+vim.o.expandtab = true -- use spaces instead of tab characters
 -- Make line numbers default
 vim.o.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
--- vim.o.relativenumber = true
+vim.o.relativenumber = true
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.o.mouse = 'a'
@@ -219,6 +228,16 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
+-- [[ Usercommands ]]
+-- Create a scratch buffer using neorg
+vim.api.nvim_create_user_command('NeorgScratch', function()
+  vim.cmd 'enew'
+  vim.bo.buftype = 'nofile'
+  vim.bo.bufhidden = 'wipe'
+  vim.bo.swapfile = false
+  vim.bo.filetype = 'norg'
+end, {})
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
@@ -247,7 +266,16 @@ rtp:prepend(lazypath)
 -- NOTE: Here is where you install your plugins.
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
-  'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
+  {
+    'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
+    opts = {
+      filetype_exclude = {
+        'html',
+        'css',
+        'javascript',
+      },
+    },
+  },
 
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
@@ -671,19 +699,28 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        -- clangd = {},
-        -- gopls = {},
+        clangd = {
+          cmd = {
+            'clangd',
+            '--background-index',
+            '--clang-tidy',
+            '--header-insertion=iwyu',
+            '--completion-style=detailed',
+            '--function-arg-placeholders',
+          },
+        },
+        gopls = {},
         -- pyright = {},
         -- rust_analyzer = {},
+        html = {},
+        cssls = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
         -- Some languages (like typescript) have entire language plugins that can be useful:
         --    https://github.com/pmizio/typescript-tools.nvim
         --
         -- But for many setups, the LSP (`ts_ls`) will work just fine
-        -- ts_ls = {},
-        --
-
+        ts_ls = {},
         lua_ls = {
           -- cmd = { ... },
           -- filetypes = { ... },
@@ -756,7 +793,7 @@ require('lazy').setup({
         -- Disable "format_on_save lsp_fallback" for languages that don't
         -- have a well standardized coding style. You can add additional
         -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
+        local disable_filetypes = { c = true, cpp = false }
         if disable_filetypes[vim.bo[bufnr].filetype] then
           return nil
         else
@@ -881,11 +918,11 @@ require('lazy').setup({
     -- change the command in the config to whatever the name of that colorscheme is.
     --
     -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-    'folke/tokyonight.nvim',
+    'ellisonleao/gruvbox.nvim',
     priority = 1000, -- Make sure to load this before all the other start plugins.
     config = function()
       ---@diagnostic disable-next-line: missing-fields
-      require('tokyonight').setup {
+      require('gruvbox').setup {
         styles = {
           comments = { italic = false }, -- Disable italics in comments
         },
@@ -894,10 +931,9 @@ require('lazy').setup({
       -- Load the colorscheme here.
       -- Like many other themes, this one has different styles, and you could load
       -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.cmd.colorscheme 'tokyonight-night'
+      vim.cmd.colorscheme 'gruvbox'
     end,
   },
-
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
 
@@ -945,7 +981,23 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = {
+        'bash',
+        'c',
+        'cpp',
+        'diff',
+        'html',
+        'lua',
+        'luadoc',
+        'markdown',
+        'markdown_inline',
+        'query',
+        'vim',
+        'vimdoc',
+        'javascript',
+        'go',
+        'norg',
+      },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -955,7 +1007,7 @@ require('lazy').setup({
         --  the list of additional_vim_regex_highlighting and disabled languages for indent.
         additional_vim_regex_highlighting = { 'ruby' },
       },
-      indent = { enable = true, disable = { 'ruby' } },
+      indent = { enable = true, disable = { 'ruby', 'html', 'cpp' } },
     },
     -- There are additional nvim-treesitter modules that you can use to interact
     -- with nvim-treesitter. You should go explore a few and see what interests you:
@@ -964,7 +1016,175 @@ require('lazy').setup({
     --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
   },
+  { -- Alternative to emacs orgmode
+    'nvim-neorg/neorg',
+    lazy = false,
+    version = '*',
+    config = function()
+      require('neorg').setup {
+        load = {
+          ['core.defaults'] = {}, -- Loads default behavior
+          ['core.concealer'] = {}, -- Adds pretty icons to your documents
+          ['core.dirman'] = { -- Manages Neorg workspaces
+            config = {
+              workspaces = {
+                notes = '~/NeorgNotes/',
+              },
+              default_workspace = 'notes',
+              index = 'index.norg',
+            },
+          },
+          ['core.summary'] = {}, -- Creates links to all files in any workspace
+        },
+      }
+      -- Neorg: open workspace index
+      vim.keymap.set('n', '<localleader>ni', function()
+        vim.cmd 'Neorg index'
+      end, { desc = 'Neorg: Open index' })
 
+      -- Set conceallevel and foldlevel for Neorg files
+      vim.api.nvim_create_autocmd('FileType', {
+        pattern = 'norg',
+        callback = function()
+          vim.wo.foldlevel = 99
+          vim.wo.conceallevel = 2
+        end,
+      })
+
+      vim.api.nvim_create_autocmd('FileType', {
+        pattern = 'markdown',
+        callback = function()
+          vim.wo.conceallevel = 2
+        end,
+      })
+      -- After colorscheme is loaded
+      local gruvbox_colors = {
+        red = '#fb4934',
+        blue = '#83a598',
+        yellow = '#fabd2f',
+        gray = '#928374',
+        purple = '#d3869b',
+        green = '#8ec07c',
+      }
+
+      vim.api.nvim_set_hl(0, '@markup.strong', { fg = gruvbox_colors.red, bold = true })
+      vim.api.nvim_set_hl(0, '@markup.italic', { fg = gruvbox_colors.blue, italic = true })
+      vim.api.nvim_set_hl(0, '@markup.underline', { fg = gruvbox_colors.yellow, underline = true })
+      vim.api.nvim_set_hl(0, '@markup.strikethrough', { fg = gruvbox_colors.gray, strikethrough = true })
+      vim.api.nvim_set_hl(0, '@markup.link', { fg = gruvbox_colors.green, underline = true })
+    end,
+  },
+  { -- Adds tabline display for open buffers
+    'romgrk/barbar.nvim',
+    dependencies = {
+      'lewis6991/gitsigns.nvim',
+      'nvim-tree/nvim-web-devicons',
+    },
+    init = function()
+      vim.g.barbar_auto_setup = false
+    end,
+    opts = {
+      sidebar_filetypes = {
+        ['neo-tree'] = { event = 'BufWipeout' },
+      },
+    },
+  },
+  {
+    'nvim-tree/nvim-tree.lua',
+    version = '*',
+    lazy = false,
+    dependencies = {
+      'nvim-tree/nvim-web-devicons',
+    },
+    config = function()
+      -- disable netrw
+      vim.g.loaded_netrw = 1
+      vim.g.loaded_netrwPlugin = 1
+
+      require('nvim-tree').setup {
+        view = {
+          width = 30,
+          side = 'left',
+        },
+        renderer = {
+          group_empty = true, -- collapse empty folders into one line
+        },
+        filters = {
+          dotfiles = false, -- set true to hide dotfiles
+        },
+      }
+      -- keymaps
+      local map = vim.keymap.set
+      map('n', '<leader>e', '<Cmd>NvimTreeToggle<CR>', { desc = 'Toggle file tree' })
+      map('n', '<leader>ef', '<Cmd>NvimTreeFindFile<CR>', { desc = 'Reveal current file in tree' })
+    end,
+  },
+  --[[
+  {
+    'MeanderingProgrammer/render-markdown.nvim',
+    -- dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-mini/mini.nvim' }, -- if you use the mini.nvim suite
+    -- dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-mini/mini.icons' },        -- if you use standalone mini plugins
+    dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-tree/nvim-web-devicons' }, -- if you prefer nvim-web-devicons
+    ---@module 'render-markdown'
+    ---@type render.md.UserConfig
+    opts = {},
+  },
+  --]]
+
+  {
+    'toppair/peek.nvim',
+    event = { 'VeryLazy' },
+    build = 'deno task --quiet build:fast',
+    config = function()
+      require('peek').setup {
+        theme = 'dark',
+        app = { 'qutebrowser', '--target', 'window' },
+      }
+      vim.keymap.set('n', '<leader>mp', function()
+        local peek = require 'peek'
+        if peek.is_open() then
+          peek.close()
+        else
+          peek.open()
+        end
+      end, { desc = 'Markdown Preview' })
+    end,
+  },
+  {
+    '3rd/image.nvim',
+    build = false,
+    lazy = false,
+    opts = {
+      backend = 'kitty',
+      processor = 'magick_cli',
+      debug = { enabled = true },
+      integrations = {
+        markdown = {
+          enabled = true,
+          clear_in_insert_mode = false,
+          download_remote_images = true,
+          only_render_image_at_cursor = false,
+          only_render_image_at_cursor_mode = 'popup',
+          floating_windows = false,
+          filetypes = { 'markdown', 'vimwiki' },
+        },
+        neorg = { enabled = true, filetypes = { 'norg' } },
+        html = { enabled = false },
+        css = { enabled = false },
+      },
+      max_width = 100, -- in columns
+      max_height_window_percentage = 25, -- percentage of window height
+      scale_factor = 1.0,
+      hijack_file_patterns = { '*.png', '*.jpg', '*.jpeg', '*.gif', '*.webp', '*.avif' },
+    },
+  },
+  {
+    'dhruvasagar/vim-table-mode',
+    ft = { 'markdown' },
+    config = function()
+      vim.g.table_mode_corner = '|' -- markdown compatible corners
+    end,
+  },
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- place them in the correct locations.
@@ -1012,6 +1232,9 @@ require('lazy').setup({
     },
   },
 })
+
+-- barbar keymaps
+require 'keymaps'
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
