@@ -353,7 +353,9 @@ do
   -- We first install it from https://github.com/NMAC427/guess-indent.nvim
   -- and then call its `setup()` function to start it with default settings.
   vim.pack.add { gh 'NMAC427/guess-indent.nvim' }
-  require('guess-indent').setup {}
+  require('guess-indent').setup {
+    filetype_exclude = {'html', 'css', 'javascript' },
+  }
 
   -- Here is a more advanced configuration example that passes options to `gitsigns.nvim`
   --
@@ -391,9 +393,9 @@ do
   -- change the command under that to load whatever the name of that colorscheme is.
   --
   -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-  vim.pack.add { gh 'folke/tokyonight.nvim' }
+  vim.pack.add { gh 'ellisonleao/gruvbox.nvim' }
   ---@diagnostic disable-next-line: missing-fields
-  require('tokyonight').setup {
+  require('gruvbox').setup {
     styles = {
       comments = { italic = false }, -- Disable italics in comments
     },
@@ -402,7 +404,7 @@ do
   -- Load the colorscheme here.
   -- Like many other themes, this one has different styles, and you could load
   -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-  vim.cmd.colorscheme 'tokyonight-night'
+  vim.cmd.colorscheme 'gruvbox'
 
   -- Highlight todo, notes, etc in comments
   vim.pack.add { gh 'folke/todo-comments.nvim' }
@@ -456,6 +458,11 @@ do
 
   -- ... and there is more!
   --  Check out: https://github.com/nvim-mini/mini.nvim
+
+  -- [[ nvim-web-devicons ]]
+  -- nvim-web-devicons: barbar and nvim-tree depend on this directly
+  -- not mini.icons, so install it alongside mini.nvim
+  vim.pack.add { gh 'nvim-tree/nvim-web-devicons' }
 end
 
 -- ============================================================
@@ -914,7 +921,7 @@ do
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
-  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+  local parsers = { 'bash', 'c', 'cpp', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'javascript', 'go', }
   require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
@@ -980,7 +987,7 @@ do
   -- require 'kickstart.plugins.indent_line'
   -- require 'kickstart.plugins.lint'
   -- require 'kickstart.plugins.autopairs'
-  -- require 'kickstart.plugins.neo-tree'
+  require 'kickstart.plugins.neo-tree'
   -- require 'kickstart.plugins.gitsigns' -- adds gitsigns recommended keymaps
 
   -- NOTE: You can add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
@@ -991,6 +998,107 @@ end
 
 -- barbar keymaps
 require 'keymaps'
+-- ============================================================
+-- SECTION 11: MY PLUGINS
+-- ============================================================
+do
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'markdown',
+    callback = function() vim.wo.conceallevel = 2 end,
+  })
+
+  local gruvbox_colors = {
+    red = '#fb4934',
+    blue = '#83a598',
+    yellow = '#fabd2f',
+    gray = '#928374',
+    purple = '#d3869b',
+    green = '#8ec07c',
+  }
+  vim.api.nvim_set_hl(0, '@markup.strong', { fg = gruvbox_colors.red, bold = true })
+  vim.api.nvim_set_hl(0, '@markup.italic', { fg = gruvbox_colors.blue, italic = true })
+  vim.api.nvim_set_hl(0, '@markup.underline', { fg = gruvbox_colors.yellow, underline = true })
+  vim.api.nvim_set_hl(0, '@markup.strikethrough', { fg = gruvbox_colors.gray, strikethrough = true })
+  vim.api.nvim_set_hl(0, '@markup.link', { fg = gruvbox_colors.green, underline = true })
+
+  -- [[ Barbar (buffer tabline) ]]
+  -- IMPORTANT: this global must be set before barbar's own setup runs
+  vim.g.barbar_auto_setup = false
+  vim.pack.add { gh 'romgrk/barbar.nvim' }
+  require('barbar').setup {
+    sidebar_filetypes = {
+      ['neo-tree'] = { event = 'BufWipeout' },
+    },
+  }
+
+  -- [[ neo-tree (file explorer) ]]
+  -- Depends on plenary.nvim (already installed via telescope) and
+  -- nvim-web-devicons (already installed above for barbar), plus nui.nvim.
+  vim.g.loaded_netrw = 1
+  vim.g.loaded_netrwPlugin = 1
+  vim.pack.add {
+    gh 'MunifTanjim/nui.nvim',
+    gh 'nvim-neo-tree/neo-tree.nvim',
+  }
+  require('neo-tree').setup {
+    filesystem = {
+      filtered_items = {
+        visible = true,
+        hide_dotfiles = false, -- matches your old nvim-tree dotfiles setting
+      },
+      window = {
+        mappings = {
+          ['\\'] = 'close_window',
+        },
+      },
+    },
+  }
+  -- '\' reveal mapping is neo-tree's own documented default keymap
+  vim.keymap.set('n', '\\', '<Cmd>Neotree reveal<CR>', { desc = 'NeoTree reveal', silent = true })
+
+  -- [[ image.nvim ]]
+  vim.pack.add { gh '3rd/image.nvim' }
+  require('image').setup {
+    backend = 'kitty',
+    processor = 'magick_cli',
+
+    kitty_method = "normal",
+
+    debug = {
+      enabled = true 
+    },
+
+    integrations = {
+      markdown = {
+        enabled = true,
+        clear_in_insert_mode = false,
+        download_remote_images = true,
+        only_render_image_at_cursor = false,
+        only_render_image_at_cursor_mode = 'popup',
+        floating_windows = false,
+        filetypes = { 'markdown', 'vimwiki' },
+      },
+      neorg = { enabled = true, filetypes = { 'norg' } },
+      html = { enabled = false },
+      css = { enabled = false },
+    },
+    max_width = 100,
+    max_height_window_percentage = 25,
+    scale_factor = 1.0,
+    hijack_file_patterns = { '*.png', '*.jpg', '*.jpeg', '*.gif', '*.webp', '*.avif' },
+  }
+
+  -- [[ vim-table-mode ]]
+  -- Not a Lua plugin with setup() — vim.pack will load it eagerly at startup
+  -- rather than lazily on markdown filetype, which is fine for something this light.
+  vim.pack.add { gh 'dhruvasagar/vim-table-mode' }
+  vim.g.table_mode_corner = '|'
+
+  -- [[ render-markdown.nvim ]]
+  vim.pack.add { gh 'MeanderingProgrammer/render-markdown.nvim' }
+  require('render-markdown').setup {}
+end
+
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
